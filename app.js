@@ -31,6 +31,7 @@ const defaults = () => ({
   backupSnooze: 0, // no backup reminder until this time
   weightUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
   liftUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
+  lockedDing: true, // play the rest timer as audio so it still dings with the screen locked
   exercises: [], // custom exercises
   routines: [],
   workouts: [], // finished workouts, newest first
@@ -1458,6 +1459,8 @@ function renderSettings() {
         <button data-lunit="lb" class="${db.liftUnit === 'lb' ? 'active' : ''}">lb</button>
         <button data-lunit="kg" class="${db.liftUnit === 'kg' ? 'active' : ''}">kg</button>
       </div></div>
+      <label class="check-line"><input type="checkbox" id="locked-ding" ${db.lockedDing ? 'checked' : ''}>Ding when rest is over, even with the screen locked</label>
+      <p class="muted small" style="margin:4px 0 0">Works by playing the rest timer as audio, which pauses music from other apps while you rest.</p>
     </section>
 
     <section class="card card-pad">
@@ -1511,6 +1514,11 @@ function renderSettings() {
     save();
     $$('[data-lunit]', view).forEach((x) => x.classList.toggle('active', x === b));
   }));
+  inp('#locked-ding').addEventListener('change', (e) => {
+    db.lockedDing = e.target.checked;
+    if (!db.lockedDing) stopRestClip();
+    save();
+  });
   inp('#usda-key').addEventListener('change', (e) => { db.usdaKey = e.target.value.trim(); save(); toast('API key saved'); });
 
   inp('#export').onclick = async () => { if (await exportBackup()) render(); };
@@ -2294,7 +2302,7 @@ function toggleSet(i, j) {
     navigator.vibrate?.(30);
     unlockAudio();
     const inGroup = it.ss && a.items[i + 1]?.ss === it.ss;
-    if (!inGroup && it.rest) { a.restEnd = Date.now() + it.rest * 1000; a.restFor = it.rest; }
+    if (!inGroup && it.rest) { a.restEnd = Date.now() + it.rest * 1000; a.restFor = it.rest; playRestClip(); }
   }
   save();
   render();
@@ -2412,6 +2420,7 @@ $('#wk-bar').onclick = (e) => {
     a.restEnd = Math.max(Date.now(), a.restEnd + v * 1000);
     a.restFor = Math.max(1, a.restFor + +v);
   }
+  playRestClip();
   save();
   updateWkBar();
 };
@@ -2439,12 +2448,64 @@ function beep() {
   }
 }
 
+// Phones pause the page when the screen locks, so the beep above never plays. Audio keeps going, though:
+// starting rest plays a clip of silence that ends in the beep, timed to the rest. It has to be a media
+// element rather than Web Audio to keep playing, so other apps' music pauses while it runs.
+let restClip, clipEnd = 0, clipUrl;
+
+function restWav(sec) {
+  const rate = 8000, beepAt = Math.round(sec * rate), n = beepAt + rate / 2;
+  const buf = new Uint8Array(44 + n);
+  const v = new DataView(buf.buffer);
+  const str = (o, x) => [...x].forEach((c, i) => (buf[o + i] = c.charCodeAt(0)));
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, n, true);
+  buf.fill(128, 44);
+  // The same two 880 Hz blips as beep(), with short fades so they don't click.
+  for (const d of [0, 0.25]) {
+    const start = beepAt + d * rate, len = 0.18 * rate;
+    for (let i = 0; i < len; i++) {
+      const env = Math.min(1, i / 160, (len - i) / 160);
+      buf[44 + start + i] = 128 + Math.round(90 * env * Math.sin((2 * Math.PI * 880 * i) / rate));
+    }
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+// Starts (or restarts, after −15/+15) the clip for the current rest. Called from taps, which phones require.
+function playRestClip() {
+  stopRestClip();
+  const a = db.active, sec = a?.restEnd ? (a.restEnd - Date.now()) / 1000 : 0;
+  if (!db.lockedDing || sec < 1) return;
+  restClip ??= new Audio();
+  clipUrl = URL.createObjectURL(restWav(sec));
+  restClip.src = clipUrl;
+  const end = a.restEnd;
+  restClip.play().then(() => { clipEnd = end; }, () => {});
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: 'Rest timer', artist: 'Ironbyte' });
+}
+
+function stopRestClip() {
+  clipEnd = 0;
+  if (!restClip) return;
+  restClip.pause();
+  restClip.removeAttribute('src');
+  restClip.load();
+  if (clipUrl) URL.revokeObjectURL(clipUrl);
+  clipUrl = null;
+}
+
 setInterval(() => {
   const a = db.active;
+  // The workout was finished or discarded, or rest skipped, while the clip was still counting down.
+  if (clipEnd && Date.now() < clipEnd && a?.restEnd !== clipEnd) stopRestClip();
   if (!a) return;
   if (a.restEnd && Date.now() >= a.restEnd) {
     // Only make noise if the app was open when time ran out, not when coming back to it later.
-    if (Date.now() - a.restEnd < 3000) { beep(); navigator.vibrate?.([200, 100, 200]); }
+    // The clip plays its own beep.
+    if (Date.now() - a.restEnd < 3000) { if (clipEnd !== a.restEnd) beep(); navigator.vibrate?.([200, 100, 200]); }
     a.restEnd = null;
     save();
     toast('Rest is over');
