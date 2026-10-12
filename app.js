@@ -1707,7 +1707,8 @@ addEventListener('resize', () => {
 
 // Routines are saved plans; db.workouts is what was actually done; db.active is the workout in progress,
 // saved as you go so closing the app mid-workout loses nothing.
-// An exercise item is { ex, name, type, rest (s), ss (superset id or null), sets: [{ w (kg), r, t (s), done }] }.
+// An exercise item is { ex, name, type, rest (s), ss (superset id or null), note, sets: [{ w (kg), r, t (s), done }] }.
+// Routines carry standing notes (shown during the workout); workouts carry notes on that one session.
 // Items in the same superset sit next to each other; the rest timer runs after the last one in the group.
 
 const EX_TYPES = { weight: 'Weight × reps', reps: 'Reps', time: 'Time' };
@@ -1783,7 +1784,7 @@ const fmtSet = (type, s) => (type === 'weight' ? `${lw(s.w ?? 0)} × ${s.r ?? '�
 function lastSets(ex) {
   for (const w of db.workouts) {
     const it = w.items.find((x) => x.ex === ex);
-    if (it) return { when: w.start, sets: it.sets };
+    if (it) return { when: w.start, sets: it.sets, note: it.note };
   }
   return null;
 }
@@ -1808,21 +1809,30 @@ const statBoxes = (ms, { sets, vol }, elapsedId) => `
   </div>`;
 
 // A new exercise in a routine starts from what you did last time; in a live workout it starts empty,
-// with last time shown alongside each set.
+// with last time shown alongside each set. Either way it keeps last time's note, like a seat setting.
 function newItem(id, live) {
   const x = exInfo(id);
   const last = lastSets(id);
   const sets = (last?.sets || [{}, {}, {}]).map((s) => (live
     ? { w: null, r: null, t: null, done: false }
     : { w: s.w ?? null, r: s.r ?? null, t: s.t ?? null }));
-  return { ex: id, name: x.name, type: x.type, rest: x.muscle === 'Cardio' ? 0 : 90, ss: null, sets };
+  return { ex: id, name: x.name, type: x.type, rest: x.muscle === 'Cardio' ? 0 : 90, ss: null, note: last?.note || null, sets };
 }
 
 // The shape a routine stores: the plan without check marks.
 const routineItem = (it) => ({
-  ex: it.ex, name: exName(it), type: it.type, rest: it.rest ?? 0, ss: it.ss || null,
+  ex: it.ex, name: exName(it), type: it.type, rest: it.rest ?? 0, ss: it.ss || null, note: cleanNote(it.note),
   sets: it.sets.map((s) => ({ w: s.w ?? null, r: s.r ?? null, t: s.t ?? null })),
 });
+
+const cleanNote = (s) => s?.trim() || null;
+
+// Notes grow with their text instead of scrolling.
+function autosize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 2 + 'px';
+}
+const notesHtml = (s) => (s ? `<p class="notes">${esc(s)}</p>` : '');
 
 // A superset needs at least two exercises side by side; drop the link from any left on its own.
 function normalizeSS(items) {
@@ -1866,6 +1876,8 @@ function blocksHtml(items, mode) {
           ${edit ? `<button class="icon-btn" data-menu="${i}" aria-label="Options for ${esc(exName(it))}">⋯</button>` : ''}
         </div>
         ${it.ss && !linkedPrev ? '<div class="ss-label">Superset</div>' : ''}
+        ${edit && it.note != null ? `<textarea class="ex-note" data-note="${i}" rows="1" placeholder="Note, e.g. seat height 4" aria-label="Note for ${esc(exName(it))}">${esc(it.note)}</textarea>`
+          : !edit && it.note ? `<div class="ex-note">${esc(it.note)}</div>` : ''}
         ${mode === 'edit' || mode === 'plan' ? lastLine(it) : ''}
         ${rest}
         <div class="sets" style="--grid: ${grid}">
@@ -1894,6 +1906,10 @@ function bindBlocks(root, items, { live, changed, refresh }) {
       changed();
     });
   });
+  $$('[data-note]', root).forEach((ta) => {
+    autosize(ta);
+    ta.addEventListener('input', () => { items[+ta.dataset.note].note = ta.value; autosize(ta); changed(); });
+  });
   $$('[data-check]', root).forEach((b) => (b.onclick = () => toggleSet(...at(b, 'check'))));
   $$('[data-addset]', root).forEach((b) => (b.onclick = () => {
     const sets = items[+b.dataset.addset].sets, l = sets[sets.length - 1] || {};
@@ -1910,7 +1926,10 @@ function bindBlocks(root, items, { live, changed, refresh }) {
     const it = items[+b.dataset.rest];
     openRestPicker(it.rest, (sec) => { it.rest = sec; changed(); refresh(); });
   }));
-  $$('[data-menu]', root).forEach((b) => (b.onclick = () => openExMenu(items, +b.dataset.menu, live, () => { changed(); refresh(); })));
+  $$('[data-menu]', root).forEach((b) => (b.onclick = () => {
+    const i = +b.dataset.menu;
+    openExMenu(items, i, live, () => { changed(); refresh(); $(`[data-note="${i}"]`)?.focus(); });
+  }));
 }
 
 function openRestPicker(cur, onPick) {
@@ -1927,6 +1946,7 @@ function openRestPicker(cur, onPick) {
 function openExMenu(items, i, live, done) {
   const it = items[i], next = items[i + 1];
   const acts = [
+    it.note == null && ['note', 'Add note'],
     ['replace', 'Replace exercise'],
     i > 0 && ['up', 'Move up'],
     next && ['down', 'Move down'],
@@ -1947,7 +1967,7 @@ function openExMenu(items, i, live, done) {
         single: true,
         onPick: ([id]) => {
           const fresh = newItem(id, live);
-          Object.assign(it, { ex: id, name: fresh.name, type: fresh.type, sets: fresh.sets });
+          Object.assign(it, { ex: id, name: fresh.name, type: fresh.type, note: fresh.note, sets: fresh.sets });
           done();
         },
       });
@@ -1961,6 +1981,7 @@ function openExMenu(items, i, live, done) {
       for (const x of items) if (old && x.ss === old) x.ss = id;
       it.ss = next.ss = id;
     }
+    if (k === 'note') it.note = '';
     if (k === 'unlink') it.ss = null;
     if (k === 'remove') items.splice(i, 1);
     normalizeSS(items);
@@ -2150,6 +2171,7 @@ function openRoutine(r) {
     title: 'Routine',
     body: `
       <div class="food-title">${esc(r.name)}</div>
+      ${notesHtml(r.notes)}
       <button class="btn primary block" id="rd-start" style="margin:12px 0 4px">Start routine</button>
       ${blocksHtml(r.items, 'plan') || '<div class="empty">No exercises yet.</div>'}
       <button class="btn block" id="rd-edit" style="margin-top:12px">Edit routine</button>`,
@@ -2164,6 +2186,7 @@ function openRoutineEditor(r) {
     title: r ? 'Edit routine' : 'New routine',
     body: `
       <label class="field"><span>Name</span><input id="re-name" value="${esc(r?.name)}" placeholder="e.g. Push day"></label>
+      <label class="field"><span>Notes (optional)</span><textarea id="re-notes" rows="2" placeholder="e.g. Go heavy on the first set">${esc(r?.notes)}</textarea></label>
       <div id="re-blocks"></div>
       <button class="btn block" id="re-add" style="margin-top:4px">✚ Add exercises</button>
       <button class="btn primary block" id="re-save" style="margin-top:12px">${r ? 'Save changes' : 'Save routine'}</button>
@@ -2175,12 +2198,14 @@ function openRoutineEditor(r) {
     box.innerHTML = blocksHtml(items, 'edit') || '<div class="empty">Add the exercises for this routine.<br>Sets fill in from the last time you did each one.</div>';
     bindBlocks(box, items, { live: false, changed: () => {}, refresh });
   };
+  autosize($('#re-notes', b));
+  $('#re-notes', b).addEventListener('input', (e) => autosize(e.target));
   $('#re-add', b).onclick = () => openExercisePicker({ onPick: (ids) => { items.push(...ids.map((id) => newItem(id, false))); refresh(); } });
   $('#re-save', b).onclick = () => {
     const name = $('#re-name', b).value.trim();
     if (!name) return toast('Give the routine a name.');
     if (!items.length) return toast('Add at least one exercise.');
-    const next = { id: r?.id || uid(), name, items: items.map(routineItem) };
+    const next = { id: r?.id || uid(), name, notes: cleanNote($('#re-notes', b).value), items: items.map(routineItem) };
     const i = db.routines.findIndex((x) => x.id === next.id);
     if (i >= 0) db.routines[i] = next;
     else db.routines.push(next);
@@ -2208,6 +2233,7 @@ function startWorkout(r) {
   const h = new Date().getHours();
   db.active = {
     id: uid(), routineId: r?.id || null, start: Date.now(), restEnd: null, restFor: 0,
+    notes: '',
     name: r?.name || (h < 12 ? 'Morning workout' : h < 17 ? 'Afternoon workout' : 'Evening workout'),
     items: (r?.items || []).map((it) => ({
       ...structuredClone(it), name: exName(it), type: exInfo(it.ex)?.type || it.type,
@@ -2222,6 +2248,7 @@ function startWorkout(r) {
 
 function renderActive(view) {
   const a = db.active;
+  const routine = db.routines.find((r) => r.id === a.routineId);
   view.innerHTML = `
     <section class="card card-pad">
       <div class="wk-title">
@@ -2229,6 +2256,8 @@ function renderActive(view) {
         <button class="btn primary sm" id="wk-finish">Finish</button>
       </div>
       ${statBoxes(Date.now() - a.start, wkStats(a.items, true), 'wk-elapsed')}
+      ${notesHtml(routine?.notes)}
+      <textarea id="wk-notes" class="wk-notes" rows="1" placeholder="Workout notes" aria-label="Workout notes">${esc(a.notes)}</textarea>
     </section>
     <div id="wk-blocks">${blocksHtml(a.items, 'live') || '<div class="empty">Add exercises from the library to get going.</div>'}</div>
     <button class="btn block" id="wk-add">✚ Add exercises</button>
@@ -2237,6 +2266,8 @@ function renderActive(view) {
   bindBlocks($('#wk-blocks', view), a.items, { live: true, changed: save, refresh: render });
   justChecked = null;
   $('#wk-name', view).addEventListener('input', (e) => { a.name = e.target.value; save(); });
+  autosize($('#wk-notes', view));
+  $('#wk-notes', view).addEventListener('input', (e) => { a.notes = e.target.value; autosize(e.target); save(); });
   $('#wk-add', view).onclick = () => openExercisePicker({ onPick: (ids) => { a.items.push(...ids.map((id) => newItem(id, true))); save(); render(); } });
   $('#wk-discard', view).onclick = () => {
     if (!confirm('Discard this workout? Nothing from it will be saved.')) return;
@@ -2282,6 +2313,7 @@ function openFinish() {
   const skipped = wkStats(a.items).sets - stats.sets;
   const routine = db.routines.find((r) => r.id === a.routineId);
   const plan = a.items.map(routineItem);
+  const notes = cleanNote(a.notes);
   const changed = routine && JSON.stringify(plan) !== JSON.stringify(routine.items.map(routineItem));
   const sheet = openSheet({
     title: 'Finish workout',
@@ -2297,8 +2329,8 @@ function openFinish() {
   $('#fw-go', sheet.body).onclick = () => {
     const name = $('#fw-name', sheet.body).value.trim() || a.name;
     db.workouts.unshift({
-      id: a.id, name, routineId: a.routineId, start: a.start, end: Date.now(),
-      items: done.map((it) => ({ ex: it.ex, name: exName(it), type: it.type, rest: it.rest, ss: it.ss || null, sets: it.sets })),
+      id: a.id, name, notes, routineId: a.routineId, start: a.start, end: Date.now(),
+      items: done.map((it) => ({ ex: it.ex, name: exName(it), type: it.type, rest: it.rest, ss: it.ss || null, note: cleanNote(it.note), sets: it.sets })),
     });
     if ($('#fw-update', sheet.body)?.checked) routine.items = plan;
     if ($('#fw-routine', sheet.body)?.checked) db.routines.push({ id: uid(), name, items: plan });
@@ -2318,6 +2350,7 @@ function openWorkout(w) {
     body: `
       <div class="food-title">${esc(w.name)}</div>
       <div class="muted small">${d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</div>
+      ${notesHtml(w.notes)}
       ${statBoxes(w.end - w.start, wkStats(w.items))}
       ${blocksHtml(w.items, 'done')}
       <button class="btn block" id="wd-routine" style="margin-top:12px">Save as routine</button>

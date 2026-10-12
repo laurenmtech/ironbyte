@@ -40,9 +40,9 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-input, select {
+input, select, textarea {
   background: var(--surface-2);
   border: 1px solid transparent;
   border-radius: 10px;
@@ -51,7 +51,8 @@ input, select {
   min-width: 0;
   font-size: 16px; /* prevents iOS zoom on focus */
 }
-input:focus, select:focus { outline: none; border-color: var(--accent); }
+textarea { display: block; resize: none; overflow: hidden; line-height: 1.4; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 
 /* ---------- top bar ---------- */
 .topbar {
@@ -331,6 +332,10 @@ table.avg th { font-size: 12px; color: var(--muted); font-weight: 500; }
 .ex-name { flex: 1; min-width: 0; font-weight: 650; color: var(--accent); }
 .ex-head .icon-btn { width: 36px; height: 36px; font-size: 20px; margin-right: -6px; }
 .ss-label { font-size: 12px; font-weight: 650; color: var(--ss); text-transform: uppercase; letter-spacing: .05em; }
+.ex-note { font-size: 14px; color: var(--ink-2); margin: 2px 0 4px; white-space: pre-wrap; }
+textarea.ex-note { padding: 6px 8px; font-size: 16px; }
+.wk-notes { margin-top: 10px; }
+.notes { margin: 6px 0 0; color: var(--ink-2); white-space: pre-wrap; }
 .ex-meta { font-size: 13px; color: var(--muted); margin: 2px 0; }
 .rest-btn { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 0; color: var(--accent); font-size: 14px; text-align: left; }
 .sets { margin: 4px -12px 0; }
@@ -468,8 +473,8 @@ body::after {
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 .btn.danger { background: none; border-color: rgba(255, 61, 110, .4); color: var(--over); }
-input, select { border-radius: 2px; border: 1px solid var(--line); background: #110e22; }
-input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 0 12px rgba(25, 230, 255, .35); }
+input, select, textarea { border-radius: 2px; border: 1px solid var(--line); background: #110e22; }
+input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 0 12px rgba(25, 230, 255, .35); }
 .seg { border-radius: 2px; background: #110e22; border: 1px solid var(--line); }
 .seg button { border-radius: 0; font-family: var(--label); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
 .seg button.active { background: var(--cyan); color: #00161a; box-shadow: 0 0 12px rgba(25, 230, 255, .5); }
