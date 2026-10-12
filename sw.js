@@ -1,7 +1,9 @@
 // Offline support: cache the app shell and food database; always go to the network for food APIs.
-const CACHE = 'ironbyte-v19';
+const CACHE = 'ironbyte-v20';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
+  'js/store.js', 'js/ui.js', 'js/food-sources.js', 'js/shell.js', 'js/diary.js', 'js/my-foods.js', 'js/scanner.js', 'js/sharing.js',
+  'js/trends.js', 'js/settings.js', 'js/weight.js', 'js/exercises.js', 'js/exercise-cards.js', 'js/workout.js', 'js/rest-timer.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'data/usda-foods.json', 'vendor/zxing.min.js',
   'fonts/orbitron.woff2', 'fonts/rajdhani-500.woff2', 'fonts/rajdhani-600.woff2', 'fonts/rajdhani-700.woff2',

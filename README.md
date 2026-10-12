@@ -27,6 +27,10 @@ Feedback and bugs: email ironbyte.change016 at passmail.net (Goals → Send feed
 
 Home-screen install and the camera need HTTPS, so use the hosted copy on a phone. It deploys to GitHub Pages from `main`.
 
+## Code layout
+
+Plain ES modules, no build step. `app.js` starts the app; everything else is in `js/`, one file per screen or feature, each with a one-line summary at the top. `store.js` holds the data (`db`) and `ui.js` the shared helpers. Other files can read `db`, `tab` and `viewDate` but not reassign them, so use `replaceDb`, `setTab` and `setViewDate`. A new file in `js/` also goes in the `SHELL` list in `sw.js` so it works offline.
+
 ## Rebuild data and icons
 
     python3 scripts/build-foods.py <FoodData_Central_sr_legacy_food_csv dir>
