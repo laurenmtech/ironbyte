@@ -2232,6 +2232,7 @@ function renderActive(view) {
     </section>
     <div id="wk-blocks">${blocksHtml(a.items, 'live') || '<div class="empty">Add exercises from the library to get going.</div>'}</div>
     <button class="btn block" id="wk-add">✚ Add exercises</button>
+    <button class="btn primary block" id="wk-finish-bottom" style="margin-top:8px">Finish workout</button>
     <button class="btn danger block" id="wk-discard" style="margin-top:8px">Discard workout</button>`;
   bindBlocks($('#wk-blocks', view), a.items, { live: true, changed: save, refresh: render });
   justChecked = null;
@@ -2243,7 +2244,7 @@ function renderActive(view) {
     save();
     render();
   };
-  $('#wk-finish', view).onclick = openFinish;
+  $('#wk-finish', view).onclick = $('#wk-finish-bottom', view).onclick = openFinish;
 }
 
 let justChecked = null; // the set checked a moment ago, so it alone gets the check-off animation
