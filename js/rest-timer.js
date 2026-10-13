@@ -1,4 +1,4 @@
-// The rest timer: the bar above the tabs and the beep.
+// The rest timer: the bar above the tabs, the beep, and keeping the screen on during a workout.
 
 import { db, save } from './store.js';
 import { $, toast } from './ui.js';
@@ -55,7 +55,25 @@ function beep() {
   }
 }
 
+// Phones pause the page when the screen locks, so the beep can't play. Keeping the screen on during a
+// workout avoids that without playing media, which would pause music from other apps. The browser drops
+// the lock whenever the page is hidden, so it's checked again every second and on coming back.
+let wakeLock = null, wakeBusy = false;
+
+async function syncWakeLock() {
+  const want = !!(db.active && db.keepAwake && document.visibilityState === 'visible' && navigator.wakeLock);
+  if (wakeBusy || want === !!(wakeLock && !wakeLock.released)) return;
+  wakeBusy = true;
+  try {
+    if (want) wakeLock = await navigator.wakeLock.request('screen');
+    else { await wakeLock.release(); wakeLock = null; }
+  } catch { /* not allowed right now, e.g. low battery; try again next tick */ }
+  wakeBusy = false;
+}
+
 export function startRestTimer() {
+  document.addEventListener('visibilitychange', syncWakeLock);
+
   $('#wk-bar').onclick = (e) => {
     const v = e.target.closest('[data-adj]')?.dataset.adj, a = db.active;
     if (!v || !a) return;
@@ -70,6 +88,7 @@ export function startRestTimer() {
   };
 
   setInterval(() => {
+    syncWakeLock();
     const a = db.active;
     if (!a) return;
     if (a.restEnd && Date.now() >= a.restEnd) {

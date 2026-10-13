@@ -25,6 +25,7 @@ export const defaults = () => ({
   backupSnooze: 0, // no backup reminder until this time
   weightUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
   liftUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
+  keepAwake: true, // keep the screen on during a workout so the rest timer can beep
   exercises: [], // custom exercises
   routines: [],
   workouts: [], // finished workouts, newest first

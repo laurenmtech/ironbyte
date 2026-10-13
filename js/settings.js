@@ -70,6 +70,8 @@ export function renderSettings() {
         <button data-lunit="lb" class="${db.liftUnit === 'lb' ? 'active' : ''}">lb</button>
         <button data-lunit="kg" class="${db.liftUnit === 'kg' ? 'active' : ''}">kg</button>
       </div></div>
+      <label class="check-line"><input type="checkbox" id="keep-awake" ${db.keepAwake ? 'checked' : ''}>Keep the screen on during a workout</label>
+      <p class="muted small" style="margin:4px 0 0">The rest timer can only beep while the screen is on. This uses more battery.</p>
     </section>
 
     <section class="card card-pad">
@@ -123,6 +125,7 @@ export function renderSettings() {
     save();
     $$('[data-lunit]', view).forEach((x) => x.classList.toggle('active', x === b));
   }));
+  inp('#keep-awake').addEventListener('change', (e) => { db.keepAwake = e.target.checked; save(); });
   inp('#usda-key').addEventListener('change', (e) => { db.usdaKey = e.target.value.trim(); save(); toast('API key saved'); });
 
   inp('#export').onclick = async () => { if (await exportBackup()) render(); };
