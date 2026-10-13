@@ -5,7 +5,7 @@ import { $, $$, esc, kc, openSheet, toast, uid } from './ui.js';
 import { render, setTab } from './shell.js';
 import { autosize, cleanNote, exInfo, exName, FIELDS, fmtMinutes, lastSets, newItem, notesHtml, routineItem, statBoxes, toLift, wkStats } from './exercises.js';
 import { bindBlocks, blocksHtml, openExercisePicker } from './exercise-cards.js';
-import { playRestClip, unlockAudio } from './rest-timer.js';
+import { unlockAudio } from './rest-timer.js';
 
 let historyAll = false;
 
@@ -184,7 +184,7 @@ export function toggleSet(i, j) {
     navigator.vibrate?.(30);
     unlockAudio();
     const inGroup = it.ss && a.items[i + 1]?.ss === it.ss;
-    if (!inGroup && it.rest) { a.restEnd = Date.now() + it.rest * 1000; a.restFor = it.rest; playRestClip(); }
+    if (!inGroup && it.rest) { a.restEnd = Date.now() + it.rest * 1000; a.restFor = it.rest; }
   }
   save();
   render();

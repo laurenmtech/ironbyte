@@ -4,7 +4,6 @@ import { db, defaults, MACROS, replaceDb, save } from './store.js';
 import { $, $$, dkey, esc, kc, parseQty, plural, toast } from './ui.js';
 import { render } from './shell.js';
 import { renderWeight } from './weight.js';
-import { stopRestClip } from './rest-timer.js';
 
 export const DAY = 864e5;
 // Feedback goes by email. The address is put together here, not written out whole, to keep it away from simple spam scrapers.
@@ -71,8 +70,6 @@ export function renderSettings() {
         <button data-lunit="lb" class="${db.liftUnit === 'lb' ? 'active' : ''}">lb</button>
         <button data-lunit="kg" class="${db.liftUnit === 'kg' ? 'active' : ''}">kg</button>
       </div></div>
-      <label class="check-line"><input type="checkbox" id="locked-ding" ${db.lockedDing ? 'checked' : ''}>Ding when rest is over, even with the screen locked</label>
-      <p class="muted small" style="margin:4px 0 0">Works by playing the rest timer as audio, which pauses music from other apps while you rest.</p>
     </section>
 
     <section class="card card-pad">
@@ -126,11 +123,6 @@ export function renderSettings() {
     save();
     $$('[data-lunit]', view).forEach((x) => x.classList.toggle('active', x === b));
   }));
-  inp('#locked-ding').addEventListener('change', (e) => {
-    db.lockedDing = e.target.checked;
-    if (!db.lockedDing) stopRestClip();
-    save();
-  });
   inp('#usda-key').addEventListener('change', (e) => { db.usdaKey = e.target.value.trim(); save(); toast('API key saved'); });
 
   inp('#export').onclick = async () => { if (await exportBackup()) render(); };

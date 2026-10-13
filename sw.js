@@ -1,5 +1,5 @@
 // Offline support: cache the app shell and food database; always go to the network for food APIs.
-const CACHE = 'ironbyte-v20';
+const CACHE = 'ironbyte-v21';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
   'js/store.js', 'js/ui.js', 'js/food-sources.js', 'js/shell.js', 'js/diary.js', 'js/my-foods.js', 'js/scanner.js', 'js/sharing.js',

@@ -25,7 +25,6 @@ export const defaults = () => ({
   backupSnooze: 0, // no backup reminder until this time
   weightUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
   liftUnit: /-(US|LR|MM)$/i.test(navigator.language) ? 'lb' : 'kg',
-  lockedDing: true, // play the rest timer as audio so it still dings with the screen locked
   exercises: [], // custom exercises
   routines: [],
   workouts: [], // finished workouts, newest first
